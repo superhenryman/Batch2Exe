@@ -1,24 +1,33 @@
 import os
-def compile_batch() -> bool:
-    """File name must be batch.cmd or batch.bat"""
-    if os.path.exists("test.cmd"):
-        with open("batch.cmd", "r") as bat:
-            batch = bat.readlines()
-    elif os.path.exists("batch.bat"):
-        with open("test.bat", "r") as bat:
-            batch = bat.readlines()
-    else:
-        return False
-    with open("test.c", "w") as test:
-        test.write("#include <stdlib.h>\n")
-        test.write("int main() {\n")
-        for i in batch:
-            clean_line = i.strip().replace('"', r'\"')  # Remove \n and escape quotes
-            if clean_line:  # Skip empty lines
-                test.write(f'    system("{clean_line}");\n')
-        test.write("    return 0;\n")
-        test.write("}\n")
+import subprocess
 
-    os.system("gcc test.c -o compiled.exe")
-    os.remove("test.c")
-    return True
+def compile_batch(batch_filename: str) -> bool:
+    """Compiles a batch file (batch.cmd or batch.bat) to a C executable."""
+    if not os.path.exists(batch_filename):
+        return False
+
+    try:
+        with open(batch_filename, "r") as bat:
+            batch_lines = bat.readlines()
+    except IOError:
+        return False
+
+    with open("test.c", "w") as test_file:
+        test_file.write("#include <stdlib.h>\n")
+        test_file.write("int main() {\n")
+        for line in batch_lines:
+            clean_line = line.strip().replace('"', r'\"')
+            if clean_line:
+                test_file.write(f'    system("{clean_line}");\n')
+        test_file.write("    return 0;\n")
+        test_file.write("}\n")
+
+    try:
+        subprocess.run(["gcc", "test.c", "-o", "compiled.exe"], check=True, capture_output=True, text=True)
+        os.remove("test.c")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"Compilation error: {e.stderr}")
+        if os.path.exists("test.c"):
+            os.remove("test.c")
+        return False
